@@ -86,7 +86,9 @@ test:
 production:
   primary: &primary_production
     <<: *default
-    url: <%= ENV["DATABASE_URL"] %>
+    username: <%= ENV["DB_USERNAME"] %>
+    password: <%= ENV["DB_PASSWORD"] %>
+    database: canterbury_back_production
   cache:
     <<: *primary_production
     database: canterbury_back_production_cache
