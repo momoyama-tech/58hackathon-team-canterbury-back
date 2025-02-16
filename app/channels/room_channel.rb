@@ -1,11 +1,28 @@
 class RoomChannel < ApplicationCable::Channel
   def subscribed
-    hashed_room = params[:room]
-    stream_from "room_#{hashed_room}"
+    room_id = params[:room]
+    stream_from "room_#{room_id}"
+    nickname = params[:nickname]
+    # 購読者リストを取得して更新
+    players = Rails.cache.fetch("players_#{room_id}") { [] }
+    players << { nickname: nickname, image: "https://placehold.jp/150x150.png" }
+    Rails.cache.write("players_#{room_id}", players)
+    Rails.logger.info "✅ Subscribed to room_#{room_id}"
+    # ルームにいるプレイヤーリストを全員にブロードキャスト
+    broadcast_players(room_id)
   end
 
   def unsubscribed
-    # Any cleanup needed when channel is unsubscribed
+    hashed_room = params[:room]
+    nickname = params[:nickname]
+
+    # 購読者リストから削除
+    players = Rails.cache.fetch("players_#{hashed_room}") { [] }
+    players.reject! { |player| player[:nickname] == nickname }
+    Rails.cache.write("players_#{hashed_room}", players)
+
+    # 更新後のプレイヤーリストを全員にブロードキャスト
+    broadcast_players(hashed_room)
   end
 
   def receive(data)
@@ -24,5 +41,28 @@ class RoomChannel < ApplicationCable::Channel
     else
       Rails.logger.error "Invalid data received: #{data.inspect}"
     end
+  end
+
+  def start_game(data)
+    ActionCable.server.broadcast("#{params[:room]}", {
+      type: "text",
+      data: {
+        command: "start_game"
+      }
+    })
+    TimerJob.start_countdown(params[:room], 10)
+  end
+
+  private
+
+  def broadcast_players(room)
+    players = Rails.cache.fetch("players_#{room}") { [] }
+    ActionCable.server.broadcast("room_#{room}", {
+      type: "text",
+      data: {
+        command: "get_players",
+        players: players
+      }
+    })
   end
 end
