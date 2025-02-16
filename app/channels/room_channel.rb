@@ -50,7 +50,7 @@ class RoomChannel < ApplicationCable::Channel
         command: "start_game"
       }
     })
-    TimerJob.start_countdown(params[:room], 10)
+    TimerJob.start_countdown(params[:room], 60)
   end
 
   private
